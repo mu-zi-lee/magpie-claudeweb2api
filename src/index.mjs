@@ -1,6 +1,7 @@
 import { Bridge, BackendError } from './bridge.mjs';
 import { prepare, response, errorBody } from './protocol.mjs';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 
 const PROVIDER = 'claude-web';
 const ORIGIN = 'https://claude.ai';
@@ -10,9 +11,6 @@ export default {
   id: 'magpie-claudeweb2api',
   async server(input, options = {}) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('Plugin options must be an object');
-    if (input.magpie?.cleanRemove !== 1) {
-      throw new Error('This plugin requires Magpie cleanRemove v1 to guarantee automatic uninstall cleanup. Apply integrations/magpie-clean-remove.patch before installing.');
-    }
     if (options.proxy !== undefined && typeof options.proxy !== 'string') throw new Error('proxy must be a URL string or "direct"');
     const origin = options.origin ?? ORIGIN;
     const upstream = new URL(origin);
@@ -26,6 +24,7 @@ export default {
     for (const name of ['locale', 'timezone']) {
       if (options[name] !== undefined && (typeof options[name] !== 'string' || !options[name].trim())) throw new Error(`${name} must be a nonempty string`);
     }
+    const icon = `data:image/png;base64,${(await readFile(new URL('../assets/icon-small.png', import.meta.url))).toString('base64')}`;
     const bridge = new Bridge();
     // Bind a session to its original login. Magpie may select another account
     // later; refuse that switch instead of silently forking the web dialogue.
@@ -35,7 +34,8 @@ export default {
     await bridge.start();
     const command = (method, auth, extra = {}) => {
       if (auth?.type !== 'api' || typeof auth.key !== 'string') throw new BackendError('Sign in with a Claude sessionKey or Cookie', 401);
-      return { method, auth: { key: auth.key }, origin, proxy: options.proxy ?? input.magpie.proxyFor?.(origin) ?? '', ...extra };
+      // The Go transport does not use the host's Bun fetch proxy routing.
+      return { method, auth: { key: auth.key }, origin, proxy: options.proxy ?? 'direct', ...extra };
     };
     return {
       'chat.headers': async ({ sessionID, model }, output) => {
@@ -47,6 +47,7 @@ export default {
       },
       auth: {
         provider: PROVIDER,
+        icon,
         maxConcurrency: 1,
         methods: [{ type: 'api', label: 'Claude sessionKey or full Cookie', placeholder: 'sk-ant-sid… or sessionKey=…; …' }],
         async loader(getAuth) {
@@ -118,8 +119,6 @@ export default {
           }]));
         },
       },
-      'magpie.uninstall': async () => { bindings.clear(); await bridge.dispose(); },
-      'magpie.dispose': async () => { bindings.clear(); await bridge.dispose(); },
     };
   },
 };

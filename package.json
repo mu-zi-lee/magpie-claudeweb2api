@@ -4,7 +4,7 @@
   "description": "Isolated Claude web provider for Magpie, with a managed Go transport",
   "type": "module",
   "main": "./src/index.mjs",
-  "files": ["src", "bin", "docs", "integrations/README.md", "integrations/magpie-base.json", "integrations/magpie-clean-remove.patch", "README.md", "LICENSE"],
+  "files": ["src", "bin", "assets/icon.png", "assets/icon-small.png", "docs", "integrations/README.md", "integrations/magpie-base.json", "README.md", "LICENSE"],
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:all": "node scripts/build.mjs --all",
@@ -17,7 +17,6 @@
   "keywords": ["magpie", "opencode-plugin", "claude", "claude-web"],
   "license": "MIT",
   "magpie": {
-    "maxConcurrency": 1,
-    "cleanRemove": { "providers": ["claude-web"] }
+    "maxConcurrency": 1
   }
 }

@@ -99,8 +99,9 @@ test('required tool choice cannot end successfully without a call', async () => 
   await assert.rejects(response(source(['I did not use a tool']), p), /required tool/);
 });
 
-test('stock Magpie is rejected before any backend or credential storage is created', async () => {
-  await assert.rejects(plugin.server({}), /cleanRemove/);
+test('invalid plugin options are rejected before starting the backend', async () => {
+  await assert.rejects(plugin.server({}, { proxy: 1 }), /proxy/);
+  await assert.rejects(plugin.server({}, { origin: 'http://example.com' }), /origin/);
 });
 
 test('byte request bodies and estimated output budgets preserve Unicode and stop early', async () => {

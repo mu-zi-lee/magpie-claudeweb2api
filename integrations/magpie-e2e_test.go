@@ -23,7 +23,7 @@ import (
 
 // This uses the actual packaged plugin, actual Bun host and Go transport. Only
 // claude.ai is replaced by a loopback HTTP server; credentials are invented.
-func TestClaudeWebPluginInstallRequestAndRemove(t *testing.T) {
+func TestClaudeWebPluginStockInstallRequestAndRemove(t *testing.T) {
 	source := os.Getenv("CLAUDEWEB_PLUGIN_SOURCE")
 	if source == "" {
 		t.Skip("run through npm run test:magpie to provide the built plugin")
@@ -131,7 +131,7 @@ func TestClaudeWebPluginInstallRequestAndRemove(t *testing.T) {
 	if _, err := plugin.Add(ctx, pkg+"@0.1.0"); err != nil {
 		t.Fatal(err)
 	}
-	if err := plugin.SetOptions(pkg, map[string]any{"origin": server.URL}); err != nil {
+	if err := plugin.SetOptions(pkg, map[string]any{"origin": server.URL, "proxy": "direct"}); err != nil {
 		t.Fatal(err)
 	}
 	cacheRoot := filepath.Join(appdir.Cache(), "bun", "install-cache")
@@ -141,6 +141,21 @@ func TestClaudeWebPluginInstallRequestAndRemove(t *testing.T) {
 	ps, err := plugin.Providers(ctx)
 	if err != nil || len(ps) != 1 || ps[0].ID != "claude-web" {
 		t.Fatalf("provider registration: %+v %v", ps, err)
+	}
+	if !strings.HasPrefix(ps[0].Icon, "data:image/png;base64,") {
+		t.Fatal("packaged plugin did not provide its local icon")
+	}
+	icon := PluginIcon(ps[0])
+	if !strings.HasPrefix(icon, "file:") {
+		t.Fatalf("Magpie could not store the plugin icon: %q", icon)
+	}
+	actualIcon, err := os.ReadFile(IconFile(strings.TrimPrefix(icon, "file:")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantIcon, err := os.ReadFile(filepath.Join(source, "assets", "icon-small.png"))
+	if err != nil || !bytes.Equal(actualIcon, wantIcon) {
+		t.Fatal("stored icon does not match the bundled image", err)
 	}
 	if _, err := PluginAPIKey(ctx, "claude-web", 0, nil, "sessionKey=fixture-account; lastActiveOrg=active"); err != nil {
 		t.Fatal(err)
@@ -206,24 +221,16 @@ func TestClaudeWebPluginInstallRequestAndRemove(t *testing.T) {
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
 		t.Fatal("installed backend survived uninstall", err)
 	}
-	if len(plugin.Auths("claude-web")) != 0 {
-		t.Fatal("Cookie survived uninstall")
-	}
-	for _, l := range readLogins() {
-		if l.Agent == "plugin:claude-web" {
-			t.Fatal("account metadata survived uninstall")
-		}
-	}
-	for _, p := range plugin.Cached() {
-		if p.ID == "claude-web" {
-			t.Fatal("model catalog survived uninstall")
-		}
-	}
 	if len(plugin.Load().Plugins) != 0 {
 		t.Fatal("plugin registration survived uninstall")
 	}
-	if entries, err := os.ReadDir(cacheRoot); err != nil || len(entries) != 0 {
-		t.Fatalf("downloaded files survived uninstall: %+v %v", entries, err)
+	// Stock removal owns package/registration cleanup. Shared credentials,
+	// account metadata and download caches follow Magpie's own behavior.
+	// Retiring Bun hosts close their pipes; no custom lifecycle hook is used.
+	plugin.Settle()
+	deadline := time.Now().Add(3 * time.Second)
+	for deleted.Load() < 5 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
 	}
 	for _, name := range []string{"package.json", "bun.lock", "bun.lockb"} {
 		data, err := os.ReadFile(filepath.Join(plugin.Dir(), name))
