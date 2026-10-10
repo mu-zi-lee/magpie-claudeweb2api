@@ -1,0 +1,5 @@
+/bin/*
+!/bin/.gitkeep
+/node_modules/
+/*.tgz
+/backend/claudeweb-backend
