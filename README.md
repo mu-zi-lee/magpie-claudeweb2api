@@ -12,7 +12,7 @@
 
 ## 当前状态
 
-源码和本地发行包可构建、可测试，**尚未发布到 npm**。原版 Magpie 的实际安装、请求和普通卸载已通过本地模拟服务验证。2026-10-10 在 macOS arm64 上使用真实 Claude 凭据验证了模型发现、Haiku 5.5 非流式回复和 Haiku 4.5 流式回复，均成功；其他账号、模型和平台未做真实上游验证。
+当前版本 **0.1.2**，修复了禁用思考时发送无效 `thinking_mode` 导致的 HTTP 400。源码和本地发行包可构建、可测试，**尚未发布到 npm**。原版 Magpie 的实际安装、请求和普通卸载已通过本地模拟服务验证。2026-10-10 在 macOS arm64 上使用真实 Claude 凭据验证了模型发现、Haiku 5.5 非流式回复和 Haiku 4.5 流式回复，均成功；其他账号、模型和平台未做真实上游验证。
 
 ## 安装与登录
 
@@ -21,7 +21,7 @@
 在 Magpie 的 Plugins 中输入下面的安装 spec，或使用 CLI：
 
 ```sh
-magpie plugin add github:mu-zi-lee/magpie-claudeweb2api#main
+magpie plugin add github:mu-zi-lee/magpie-claudeweb2api#v0.1.2
 magpie plugin login claude-web
 magpie provider test claude-web
 ```
@@ -31,6 +31,8 @@ magpie provider test claude-web
 登录时粘贴 Claude 的 `sessionKey` 或完整 Cookie。凭据保存在 Magpie 的账号存储中，插件通过私有管道传给后端；请勿将 Cookie 写进插件 Options、README 或公开日志。
 
 **旧版加载失败时：** 0.1.0 的 GitHub 源码未包含后端，可能报 `No packaged backend` 并显示默认图标。0.1.1 已将后端纳入仓库。Git 安装可能保留锁定的旧提交；更新时可使用 `github:mu-zi-lee/magpie-claudeweb2api#<新提交 SHA>` 明确安装新版，而不是反复添加相同的旧 spec。
+
+**升级到 0.1.2：** 在 Plugins 中添加 `github:mu-zi-lee/magpie-claudeweb2api#v0.1.2`，以新的 Git ref 替换旧安装。确认版本显示为 `0.1.2` 后，再开始新的测试请求。仅推送 GitHub 或重启旧安装不会保证更新 Bun 锁定的提交。
 
 ### 本地开发安装
 
