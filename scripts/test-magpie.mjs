@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, copyFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, copyFileSync, rmSync, mkdirSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -23,6 +23,26 @@ function run(command, args) {
   if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} failed`);
 }
 try {
+  // Test exactly the files Git knows about, including staged new release assets.
+  // A locally built but ignored executable must not make Git installation pass.
+  const tracked = spawnSync('git', ['ls-files', '--stage', '-z'], { cwd: root, encoding: 'utf8' });
+  if (tracked.status !== 0) throw new Error('Could not list tracked plugin files');
+  const gitFixture = join(sandbox, 'plugin-git');
+  mkdirSync(gitFixture);
+  for (const entry of tracked.stdout.split('\0').filter(Boolean)) {
+    const [metadata, name] = entry.split('\t');
+    const [mode, , stage] = metadata.split(' ');
+    if (stage !== '0') throw new Error('Resolve plugin merge conflicts before integration testing');
+    const from = join(root, name), to = join(gitFixture, name);
+    mkdirSync(dirname(to), { recursive: true });
+    copyFileSync(from, to);
+    chmodSync(to, mode === '100755' ? 0o755 : 0o644);
+  }
+  for (const args of [['init', '--quiet'], ['add', '--all'], ['-c', 'user.name=Plugin integration test', '-c', 'user.email=plugin-test@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'Tracked plugin snapshot']]) {
+    const result = spawnSync('git', args, { cwd: gitFixture, stdio: 'inherit' });
+    if (result.status !== 0) throw new Error('Could not prepare tracked-source Git fixture');
+  }
+  env.CLAUDEWEB_PLUGIN_GIT_SPEC = `git+file://${gitFixture}`;
   const packed = spawnSync(process.execPath, [process.env.npm_execpath, 'pack', '--silent'], { cwd: root, stdio: 'inherit' });
   if (packed.status !== 0) throw new Error('Could not build the npm release archive for the installation test');
   const clone = spawnSync('git', ['clone', '--quiet', '--local', '--no-hardlinks', resolve(source), checkout], { stdio: 'inherit' });
@@ -30,8 +50,8 @@ try {
   copyFileSync(join(root, 'integrations/magpie-e2e_test.go'), join(checkout, 'internal/provider/claudeweb_e2e_test.go'));
   run('gofmt', ['-w', 'internal/provider/claudeweb_e2e_test.go']);
   console.log('Verifying stock Magpie, the packaged plugin and ordinary removal in a private HOME.');
-  run('go', ['test', '-race', '-tags', 'nogui', './internal/provider', '-run', '^TestClaudeWebPluginStockInstallRequestAndRemove$', '-count=1', '-v']);
-  console.log('Verified: stock host stores the bundled icon, serves text/tools, reuses conversations, removes the package and closes the backend pipe.');
+  run('go', ['test', '-race', '-tags', 'nogui', './internal/provider', '-run', '^TestClaudeWebPlugin(Stock|Git)InstallRequestAndRemove$', '-count=1', '-v']);
+  console.log('Verified npm and Git installs: stock host stores the icon, serves text/tools, reuses conversations, removes the package and closes the backend pipe.');
 } finally {
   rmSync(sandbox, { recursive: true, force: true });
 }

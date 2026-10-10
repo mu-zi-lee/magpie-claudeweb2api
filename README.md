@@ -16,25 +16,33 @@
 
 ## 安装与登录
 
-当前可用本地源码目录安装。构建需要 Node 22+ 和 Go 1.26.4+；运行需要 Magpie，Bun 由 Magpie 提供。
+### 从 GitHub 直接安装
 
-在本项目目录中构建本机后端：
-
-```sh
-npm run build
-```
-
-然后添加插件，并登录 `claude-web`：
+在 Magpie 的 Plugins 中输入下面的安装 spec，或使用 CLI：
 
 ```sh
-magpie plugin add /absolute/path/to/magpie-claudeweb2api
+magpie plugin add github:mu-zi-lee/magpie-claudeweb2api#main
 magpie plugin login claude-web
 magpie provider test claude-web
 ```
 
-将路径替换为本项目的实际绝对路径。登录时粘贴 Claude 的 `sessionKey` 或完整 Cookie。凭据保存在 Magpie 的账号存储中，插件通过私有管道传给后端；请勿将 Cookie 写进插件 Options、README 或公开日志。
+仓库附带 macOS / Linux / Windows 的 arm64、x64 预编译后端和校验清单，安装时无需 Go 或 Node。Magpie 提供 Bun，插件不会在加载时下载或编译后端。
 
-发行包发布到 npm 后，可在 Magpie 的 Plugins 中输入 `magpie-claudeweb2api` 安装。当前 `.tgz` 是待发布的产物，不能直接把本地 `.tgz` 路径当作 Magpie 插件源码加载。
+登录时粘贴 Claude 的 `sessionKey` 或完整 Cookie。凭据保存在 Magpie 的账号存储中，插件通过私有管道传给后端；请勿将 Cookie 写进插件 Options、README 或公开日志。
+
+**旧版加载失败时：** 0.1.0 的 GitHub 源码未包含后端，可能报 `No packaged backend` 并显示默认图标。0.1.1 已将后端纳入仓库。Git 安装可能保留锁定的旧提交；更新时可使用 `github:mu-zi-lee/magpie-claudeweb2api#<新提交 SHA>` 明确安装新版，而不是反复添加相同的旧 spec。
+
+### 本地开发安装
+
+完整克隆仓库后也可以添加本地目录：
+
+```sh
+magpie plugin add /absolute/path/to/magpie-claudeweb2api
+```
+
+将路径替换为项目实际绝对路径。仅在修改 Go 后端后需要重新构建：`npm run build` 构建本机后端，`npm run build:all` 构建全部平台。开发构建需要 Node 22+ 和 Go 1.26.4+。
+
+目前尚未发布到 npm。发布后可在 Plugins 中输入包名安装；当前 `.tgz` 是待发布的产物，不能直接把本地 `.tgz` 路径当作 Magpie 插件源码加载。
 
 ## 代理与选项
 
@@ -98,7 +106,7 @@ magpie provider test claude-web
 magpie plugin remove <安装时的 spec>
 ```
 
-本地目录安装时，`spec` 是添加时的路径；npm 安装时是对应包名或版本 spec。卸载按 Magpie 原有流程移除注册和 npm 安装包，本地源码目录保留。正在运行的请求可能延迟旧宿主退出；宿主退出后后端检测管道关闭，取消请求并结束。
+GitHub 安装时，`spec` 是添加时的完整 Git spec；本地目录安装时是路径；npm 安装时是对应包名或版本 spec。卸载按 Magpie 原有流程移除注册和 npm 安装包，本地源码目录保留。正在运行的请求可能延迟旧宿主退出；宿主退出后后端检测管道关闭，取消请求并结束。
 
 Magpie 保存的登录凭据、账号显示记录、模型缓存和 Bun 下载缓存由宿主处理，不保证一次删除全部清空。如需移除保存的 Cookie，可在删除插件前先从 Magpie 移除相应账号。宿主也可能缓存插件图标；这些文件按 Magpie 自身规则管理。
 
@@ -116,7 +124,7 @@ npm pack               # 生成发行包
 npm run test:magpie -- /absolute/path/to/magpie-source
 ```
 
-完整发行包需要先构建六个平台的后端。运行宿主集成测试还需要 Bun 和处于验收提交的 Magpie 源码；测试仅修改临时源码副本，不改动你安装的 Magpie。跨平台编译成功不等于已在对应系统运行验证。
+仓库已包含六个平台后端；修改后端源码后，完整发行包需要重新构建六个平台并同步校验清单。运行宿主集成测试还需要 Bun 和处于验收提交的 Magpie 源码；测试仅修改临时源码副本，不改动你安装的 Magpie。跨平台编译成功不等于已在对应系统运行验证。
 
 - [原版 Magpie 集成验证](integrations/README.md)
 - [设计与隔离边界](docs/design.md)

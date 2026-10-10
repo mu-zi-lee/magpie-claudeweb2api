@@ -1,0 +1,8 @@
+{
+  "claudeweb-darwin-arm64": "2759a042fd12a4d2a96bc47f9c73bf21b51fcd6a23622761f5cc8f3118cce21e",
+  "claudeweb-darwin-x64": "26bea8ab0c1dd509a026bcf765cfae95ff22895bd3b8d95e7c4587c759f6e7c1",
+  "claudeweb-linux-arm64": "9b6b8e051bd68d0026439b31924646f0f8e25a4f1a14e018e84d6ba299def75c",
+  "claudeweb-linux-x64": "b4a905128c35c599841ca4501b4c810bb63639491812cc29bc7c7ac1f741ef7d",
+  "claudeweb-win32-arm64.exe": "7ae379996cfbdce6c0c093e005f5a8b059fa5f091c0f9d8b689e87c7c36f5606",
+  "claudeweb-win32-x64.exe": "31c488fc94855ca93fb397a469c0ea88861ff1b01e681c15ac93b273a931f1bc"
+}

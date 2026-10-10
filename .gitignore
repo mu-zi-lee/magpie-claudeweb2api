@@ -1,5 +1,4 @@
-/bin/*
-!/bin/.gitkeep
+.DS_Store
 /node_modules/
 /*.tgz
 /backend/claudeweb-backend

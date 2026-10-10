@@ -24,6 +24,15 @@ import (
 // This uses the actual packaged plugin, actual Bun host and Go transport. Only
 // claude.ai is replaced by a loopback HTTP server; credentials are invented.
 func TestClaudeWebPluginStockInstallRequestAndRemove(t *testing.T) {
+	claudeWebPluginInstallRequestAndRemove(t, false)
+}
+
+func TestClaudeWebPluginGitInstallRequestAndRemove(t *testing.T) {
+	claudeWebPluginInstallRequestAndRemove(t, true)
+}
+
+func claudeWebPluginInstallRequestAndRemove(t *testing.T, gitInstall bool) {
+	t.Helper()
 	source := os.Getenv("CLAUDEWEB_PLUGIN_SOURCE")
 	if source == "" {
 		t.Skip("run through npm run test:magpie to provide the built plugin")
@@ -36,9 +45,22 @@ func TestClaudeWebPluginStockInstallRequestAndRemove(t *testing.T) {
 	t.Setenv("MAGPIE_BUN", bun)
 	t.Cleanup(plugin.Settle)
 	const pkg = "magpie-claudeweb2api"
+	manifestBytes, err := os.ReadFile(filepath.Join(source, "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Version string `json:"version"`
+		Magpie  struct {
+			Icon string `json:"icon"`
+		} `json:"magpie"`
+	}
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil || manifest.Version == "" {
+		t.Fatal("invalid plugin manifest", err)
+	}
 	// Serve the actual npm pack output. This exercises Bun's download, package
 	// installation, hashed index and executable permissions, not a copied folder.
-	archive, err := os.ReadFile(filepath.Join(source, pkg+"-0.1.0.tgz"))
+	archive, err := os.ReadFile(filepath.Join(source, pkg+"-"+manifest.Version+".tgz"))
 	if err != nil {
 		t.Fatal("build and npm pack the release before this test", err)
 	}
@@ -55,7 +77,7 @@ func TestClaudeWebPluginStockInstallRequestAndRemove(t *testing.T) {
 		}
 		if r.URL.Path == "/registry/"+pkg {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"name": pkg, "dist-tags": map[string]string{"latest": "0.1.0"}, "versions": map[string]any{"0.1.0": map[string]any{"name": pkg, "version": "0.1.0", "dist": map[string]string{"tarball": server.URL + "/plugin.tgz"}}}})
+			json.NewEncoder(w).Encode(map[string]any{"name": pkg, "dist-tags": map[string]string{"latest": manifest.Version}, "versions": map[string]any{manifest.Version: map[string]any{"name": pkg, "version": manifest.Version, "dist": map[string]string{"tarball": server.URL + "/plugin.tgz"}}}})
 			return
 		}
 		if !strings.Contains(r.Header.Get("Cookie"), "sessionKey=fixture-account") {
@@ -128,15 +150,24 @@ func TestClaudeWebPluginStockInstallRequestAndRemove(t *testing.T) {
 	t.Setenv("BUN_CONFIG_REGISTRY", server.URL+"/registry/")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if _, err := plugin.Add(ctx, pkg+"@0.1.0"); err != nil {
+	spec := pkg + "@" + manifest.Version
+	if gitInstall {
+		spec = os.Getenv("CLAUDEWEB_PLUGIN_GIT_SPEC")
+		if spec == "" {
+			t.Fatal("Git install test requires a tracked-source repository fixture")
+		}
+	}
+	if _, err := plugin.Add(ctx, spec); err != nil {
 		t.Fatal(err)
 	}
-	if err := plugin.SetOptions(pkg, map[string]any{"origin": server.URL, "proxy": "direct"}); err != nil {
+	if err := plugin.SetOptions(spec, map[string]any{"origin": server.URL, "proxy": "direct"}); err != nil {
 		t.Fatal(err)
 	}
 	cacheRoot := filepath.Join(appdir.Cache(), "bun", "install-cache")
-	if entries, err := os.ReadDir(cacheRoot); err != nil || len(entries) < 3 {
-		t.Fatal("actual downloaded package/index cache was not created", err)
+	if !gitInstall {
+		if entries, err := os.ReadDir(cacheRoot); err != nil || len(entries) < 3 {
+			t.Fatal("actual downloaded package/index cache was not created", err)
+		}
 	}
 	ps, err := plugin.Providers(ctx)
 	if err != nil || len(ps) != 1 || ps[0].ID != "claude-web" {
@@ -144,6 +175,9 @@ func TestClaudeWebPluginStockInstallRequestAndRemove(t *testing.T) {
 	}
 	if !strings.HasPrefix(ps[0].Icon, "data:image/png;base64,") {
 		t.Fatal("packaged plugin did not provide its local icon")
+	}
+	if manifest.Magpie.Icon != ps[0].Icon {
+		t.Fatal("discovery icon does not match the loaded provider icon")
 	}
 	icon := PluginIcon(ps[0])
 	if !strings.HasPrefix(icon, "file:") {
@@ -215,7 +249,7 @@ func TestClaudeWebPluginStockInstallRequestAndRemove(t *testing.T) {
 	if ls := pluginLogins(ps[0]); len(ls) != 1 {
 		t.Fatalf("display account: %+v", ls)
 	}
-	if err := RemovePlugin(ctx, pkg); err != nil {
+	if err := RemovePlugin(ctx, spec); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
