@@ -28,6 +28,12 @@ test('real Go backend: model discovery, streaming, account isolation, cancellati
       req.on('data', chunk => { body += chunk; });
       req.on('end', () => {
         const parsed = JSON.parse(body);
+        // Match the web API's validation so invalid adapter values fail here.
+        if (!['extended', 'standard', 'auto', 'off'].includes(parsed.thinking_mode)) {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: { type: 'invalid_request_error', message: 'Invalid thinking_mode' } }));
+          return;
+        }
         assert.deepEqual(parsed.tools, []);
         if (parsed.prompt === 'wait') { waiting(); return; }
         res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -58,7 +64,7 @@ test('real Go backend: model discovery, streaming, account isolation, cancellati
   await waitDeleted(1);
   assert.equal(deleted, 1);
   const controller = new AbortController();
-  const pending = await bridge.open(command('complete', 'account-two', { completion: { model: 'model-a', prompt: 'wait' } }), controller.signal);
+  const pending = await bridge.open(command('complete', 'account-two', { completion: { model: 'model-a', prompt: 'wait', thinking: 'off' } }), controller.signal);
   await started;
   controller.abort();
   await assert.rejects(pending.next(), /abort/i);

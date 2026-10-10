@@ -70,7 +70,7 @@ export function prepare(body, options = {}) {
   if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(effort)) fail('Unsupported effort level');
   return {
     req, tools: active, choice, start, end, sequences, inputTokens: estimate(prompt), maxOutputChars: Math.min(req.max_tokens * 4, 4 * 1024 * 1024),
-    completion: { conversation_id: req.conversation_id?.trim() ?? '', turn_key: randomUUID(), history, context_key: digest(JSON.stringify([req.system ?? '', tools, choice])), request_key: digest(JSON.stringify([history, req.model, req.system ?? '', tools, choice, effort, req.max_tokens, sequences])), model: req.model, prompt, effort, thinking: 'none', locale: options.locale ?? 'en-US', timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC' },
+    completion: { conversation_id: req.conversation_id?.trim() ?? '', turn_key: randomUUID(), history, context_key: digest(JSON.stringify([req.system ?? '', tools, choice])), request_key: digest(JSON.stringify([history, req.model, req.system ?? '', tools, choice, effort, req.max_tokens, sequences])), model: req.model, prompt, effort, thinking: 'off', locale: options.locale ?? 'en-US', timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC' },
   };
 }
 
