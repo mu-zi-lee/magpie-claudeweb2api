@@ -48,10 +48,12 @@ try {
   const clone = spawnSync('git', ['clone', '--quiet', '--local', '--no-hardlinks', resolve(source), checkout], { stdio: 'inherit' });
   if (clone.status !== 0) throw new Error('Could not prepare disposable Magpie checkout');
   copyFileSync(join(root, 'integrations/magpie-e2e_test.go'), join(checkout, 'internal/provider/claudeweb_e2e_test.go'));
+  copyFileSync(join(root, 'integrations/magpie-thinking-e2e_test.go'), join(checkout, 'internal/gateway/claudeweb_thinking_e2e_test.go'));
   run('gofmt', ['-w', 'internal/provider/claudeweb_e2e_test.go']);
   console.log('Verifying stock Magpie, the packaged plugin and ordinary removal in a private HOME.');
   run('go', ['test', '-race', '-tags', 'nogui', './internal/provider', '-run', '^TestClaudeWebPlugin(Stock|Git)InstallRequestAndRemove$', '-count=1', '-v']);
-  console.log('Verified npm and Git installs: stock host stores the icon, serves text/tools, reuses conversations, removes the package and closes the backend pipe.');
+  run('go', ['test', '-race', '-tags', 'nogui', './internal/gateway', '-run', '^TestClaudeWebPluginGatewayThinking$', '-count=1', '-v']);
+  console.log('Verified npm and Git installs: stock host stores the icon, serves text/tools and gateway reasoning requests, reuses conversations, removes the package and closes the backend pipe.');
 } finally {
   rmSync(sandbox, { recursive: true, force: true });
 }

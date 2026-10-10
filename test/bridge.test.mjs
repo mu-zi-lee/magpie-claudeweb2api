@@ -63,6 +63,13 @@ test('real Go backend: model discovery, streaming, account isolation, cancellati
   assert.match(await result.text(), /你好/);
   await waitDeleted(1);
   assert.equal(deleted, 1);
+  for (const thinking of [{ type: 'adaptive' }, { type: 'enabled', budget_tokens: 2048 }]) {
+    const prepared = prepare(JSON.stringify({ model: 'model-a', max_tokens: 4096, messages: [{ role: 'user', content: 'hi' }], thinking, output_config: { effort: 'medium' } }));
+    const thought = await bridge.open(command('complete', 'account-one', { completion: prepared.completion }));
+    assert.equal((await thought.next()).value.event, 'head');
+    assert.match(await (await response(thought, prepared)).text(), /你好/);
+  }
+  await waitDeleted(3);
   const controller = new AbortController();
   const pending = await bridge.open(command('complete', 'account-two', { completion: { model: 'model-a', prompt: 'wait', thinking: 'off' } }), controller.signal);
   await started;
@@ -71,7 +78,7 @@ test('real Go backend: model discovery, streaming, account isolation, cancellati
   pending.close();
   await bridge.dispose();
   assert.equal(child.exitCode, 0);
-  assert.equal(deleted, 2);
+  assert.equal(deleted, 4);
   assert.equal(cookies.some(cookie => cookie.includes('account-one') && cookie.includes('account-two')), false);
 });
 

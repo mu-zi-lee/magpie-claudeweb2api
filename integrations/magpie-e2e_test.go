@@ -99,9 +99,11 @@ func claudeWebPluginInstallRequestAndRemove(t *testing.T, gitInstall bool) {
 				t.Error("completion used the wrong organization")
 			}
 			var body struct {
-				Prompt string `json:"prompt"`
-				Parent string `json:"parent_message_uuid"`
-				Turns  struct {
+				Prompt   string `json:"prompt"`
+				Parent   string `json:"parent_message_uuid"`
+				Thinking string `json:"thinking_mode"`
+				Effort   string `json:"effort"`
+				Turns    struct {
 					Assistant string `json:"assistant_message_uuid"`
 				} `json:"turn_message_uuids"`
 			}
@@ -110,6 +112,9 @@ func claudeWebPluginInstallRequestAndRemove(t *testing.T, gitInstall bool) {
 			}
 			text := "真实宿主链路"
 			n := completions.Add(1)
+			if n <= 2 && (body.Thinking != "auto" || body.Effort != "medium") {
+				t.Error("Magpie thinking configuration did not reach the web API as auto/medium")
+			}
 			if n == 5 {
 				sessionPath.Store(r.URL.Path)
 				sessionAssistant.Store(body.Turns.Assistant)
@@ -214,11 +219,11 @@ func claudeWebPluginInstallRequestAndRemove(t *testing.T, gitInstall bool) {
 		}
 		return b
 	}
-	text := request(`{"model":"fixture-model","max_tokens":100,"stream":true,"messages":[{"role":"user","content":"hello"}]}`)
+	text := request(`{"model":"fixture-model","max_tokens":100,"stream":true,"thinking":{"type":"adaptive"},"output_config":{"effort":"medium"},"messages":[{"role":"user","content":"hello"}]}`)
 	if !strings.Contains(string(text), "真实宿主链路") || !strings.Contains(string(text), "event: message_stop") {
 		t.Fatalf("stream: %s", text)
 	}
-	tool := request(`{"model":"fixture-model","max_tokens":1000,"messages":[{"role":"user","content":"write"}],"tools":[{"name":"Write","input_schema":{"type":"object","required":["file_path","content"]}}]}`)
+	tool := request(`{"model":"fixture-model","max_tokens":4096,"thinking":{"type":"enabled","budget_tokens":2048},"output_config":{"effort":"medium"},"messages":[{"role":"user","content":"write"}],"tools":[{"name":"Write","input_schema":{"type":"object","required":["file_path","content"]}}]}`)
 	if !strings.Contains(string(tool), `"stop_reason":"tool_use"`) || !strings.Contains(string(tool), marker) {
 		t.Fatalf("tool response: %s", tool)
 	}

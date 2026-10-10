@@ -48,11 +48,21 @@ test('tool results retain ids, errors and content in the next model prompt', () 
   assert.match(p.completion.prompt, /"is_error":true/);
 });
 
-test('unsupported modalities and signed thinking fail clearly', () => {
+test('unsupported modalities and signed thinking history fail clearly', () => {
   assert.throws(() => prepare(request({ messages: [{ role: 'user', content: [{ type: 'image', source: {} }] }] })), /Unsupported content/);
-  assert.throws(() => prepare(request({ thinking: { type: 'enabled', budget_tokens: 1000 } })), /thinking/);
+  assert.throws(() => prepare(request({ messages: [{ role: 'assistant', content: [{ type: 'thinking', thinking: 'private reasoning', signature: 'signed' }] }] })), /Unsupported content/);
   assert.throws(() => prepare(request({ tools: [tool, tool] })), /unique/);
   assert.throws(() => prepare(request({ tool_choice: { type: 'tool', name: 'Read' } })), /undefined/);
+});
+
+test('invalid thinking settings fail and thinking mode changes invalidate conversation fingerprints', () => {
+  for (const thinking of [null, 'adaptive', {}, { type: 'unknown' }, { type: 'enabled', budget_tokens: 0 }]) {
+    assert.throws(() => prepare(request({ thinking })), /thinking/);
+  }
+  const disabled = prepare(request({ thinking: { type: 'disabled' } }));
+  const adaptive = prepare(request({ thinking: { type: 'adaptive' } }));
+  assert.notEqual(disabled.completion.context_key, adaptive.completion.context_key);
+  assert.notEqual(disabled.completion.request_key, adaptive.completion.request_key);
 });
 
 test('nonstreaming tool response hands execution to the caller and uses tool_use stop reason', async () => {

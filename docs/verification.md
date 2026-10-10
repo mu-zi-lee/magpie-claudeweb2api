@@ -1,5 +1,15 @@
 # 验证记录
 
+## 2026-10-10：0.1.3 Magpie 推理档位兼容
+
+用户的 Magpie 路由详情明确报告 `Signed extended thinking is not supported by this web adapter`。检查 Magpie 的 `buildAnthropic` 后确认，Haiku 5.5 的推理档位会产生 `thinking.type: adaptive`；旧模型会产生带预算的 `enabled`。0.1.2 仅验证了未启用思考或显式禁用的请求，遗漏了这条网关转换路径。
+
+0.1.3 接受上述配置并映射为网页 `auto`，保留 `output_config.effort`；禁用或未指定时仍为 `off`。思考模式纳入会话与请求摘要，防止切换模式误用旧会话或误判为重复请求。响应仍只返回文本和客户端工具调用，不透传网页思考块或伪造官方 API 的签名。
+
+桥接回归先在 0.1.2 上复现相同拒绝，再验证修复后的 `adaptive` 与 `enabled` 请求成功。`npm test` 的 26 项测试全部通过。真实 Claude 上游验证了 Haiku 5.5 的低、中、高档位流式请求，以及 Haiku 4.5 的 enabled 非流式请求，四项均返回 HTTP 200、`OK` 并正常结束。
+
+真实 Bun 宿主的 npm 和 Git 安装集成测试也覆盖了上述请求配置，均通过。新增网关集成测试使用原版 Magpie 的 `buildAnthropic` 生成请求，再交给真实 Bun 插件宿主和发行 Go 后端；本地模拟上游与授权的真实 Claude 上游均通过四个档位/模型组合，并启用 Go race 检查。默认使用本地模拟上游，真实凭据测试仅在显式提供 `CLAUDEWEB_LIVE_COOKIE_FILE` 时执行。
+
 ## 2026-10-10：0.1.2 真实上游 thinking_mode 修复
 
 执行机器：macOS arm64，插件直连 Claude 网页接口。使用用户授权的单个账号凭据，凭据未写入源码、测试夹具或公开日志。

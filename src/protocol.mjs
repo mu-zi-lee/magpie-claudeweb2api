@@ -37,7 +37,14 @@ export function prepare(body, options = {}) {
   if (!Number.isSafeInteger(req.max_tokens) || req.max_tokens < 1) fail('max_tokens must be a positive integer');
   if (req.stream !== undefined && typeof req.stream !== 'boolean') fail('stream must be a boolean');
   if (req.conversation_id !== undefined && (typeof req.conversation_id !== 'string' || !req.conversation_id.trim() || req.conversation_id.length > 256 || /[\r\n\0]/.test(req.conversation_id))) fail('conversation_id must be a nonempty string of at most 256 characters');
-  if (req.thinking && req.thinking.type !== 'disabled') fail('Signed extended thinking is not supported by this web adapter');
+  let thinking = 'off';
+  if (req.thinking !== undefined) {
+    if (!object(req.thinking) || !['disabled', 'enabled', 'adaptive'].includes(req.thinking.type)) fail('Unsupported thinking configuration');
+    if (req.thinking.type === 'enabled' && req.thinking.budget_tokens !== undefined && (!Number.isSafeInteger(req.thinking.budget_tokens) || req.thinking.budget_tokens < 1)) fail('thinking budget_tokens must be a positive integer');
+    // Magpie's reasoning selector emits API thinking settings; web budgets
+    // are automatic and its signed thinking blocks are not exposed here.
+    if (req.thinking.type !== 'disabled') thinking = 'auto';
+  }
   const sequences = req.stop_sequences === undefined ? [] : req.stop_sequences;
   if (!Array.isArray(sequences) || sequences.length > 64 || sequences.some(s => typeof s !== 'string' || !s.length || s.length > 8192)) fail('stop_sequences must contain at most 64 nonempty strings of at most 8192 characters');
   const tools = req.tools ?? [];
@@ -70,7 +77,7 @@ export function prepare(body, options = {}) {
   if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(effort)) fail('Unsupported effort level');
   return {
     req, tools: active, choice, start, end, sequences, inputTokens: estimate(prompt), maxOutputChars: Math.min(req.max_tokens * 4, 4 * 1024 * 1024),
-    completion: { conversation_id: req.conversation_id?.trim() ?? '', turn_key: randomUUID(), history, context_key: digest(JSON.stringify([req.system ?? '', tools, choice])), request_key: digest(JSON.stringify([history, req.model, req.system ?? '', tools, choice, effort, req.max_tokens, sequences])), model: req.model, prompt, effort, thinking: 'off', locale: options.locale ?? 'en-US', timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC' },
+    completion: { conversation_id: req.conversation_id?.trim() ?? '', turn_key: randomUUID(), history, context_key: digest(JSON.stringify([req.system ?? '', tools, choice, thinking])), request_key: digest(JSON.stringify([history, req.model, req.system ?? '', tools, choice, thinking, effort, req.max_tokens, sequences])), model: req.model, prompt, effort, thinking, locale: options.locale ?? 'en-US', timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC' },
   };
 }
 

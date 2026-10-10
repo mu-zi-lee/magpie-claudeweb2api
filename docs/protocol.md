@@ -2,6 +2,8 @@
 
 ## 参数与限制
 
+接受 Magpie 生成的 `thinking: { type: 'adaptive' }` 和 `thinking: { type: 'enabled', budget_tokens: N }`，转换为网页 `thinking_mode: auto`；显式 `disabled` 或未指定时为 `off`。`output_config.effort` 优先于插件选项，网页自行分配思考预算，不保证官方 API 的 `budget_tokens` 语义。响应仅返回文本和客户端工具调用，上游思考块不透传，不提供签名思考历史。思考模式变化会重建网页会话；相同模式下调整 effort 不会被误判为已完成的重复请求。
+
 `max_tokens` 同样采用每个估算 token 约 4 个 Unicode 字符的输出上限，最多 4 Mi 字符；达到上限返回 `max_tokens` 并取消上游。工具参数不会被截成无效 JSON，超出预算则报错。上游的 `max_tokens` 和 `refusal` 结束原因会保留。`stop_sequences` 最多 64 个，每个不超过 8192 个 UTF-16 单元；流式输出仅暂存可能匹配停止词的尾部。
 
 网页接口不能等价实现官方 API 的采样参数或 system 优先级；角色和工具定义序列化进 prompt。工具 JSON Schema 校验覆盖类型、required、properties、additionalProperties、items、enum、const、本地 `$ref`、allOf / anyOf / oneOf / not、数值上下界、字符串长度、数组长度和唯一性、对象属性数量。字符串长度按 Unicode 字符计，枚举中的对象不受键顺序影响。外部引用在请求准备阶段拒绝；递归和校验操作量受限。未列出的约束（如 pattern、format、multipleOf 和条件 schema）由客户端工具验证，不宣称实现完整 JSON Schema。
